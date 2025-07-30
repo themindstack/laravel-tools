@@ -165,7 +165,7 @@ class ModelGenerateProperties extends Command
                 'date' => 'date',
                 'timestamp', 'datetime' => 'datetime'
             };
-            $this->warn("Consider to use case $shouldUseCast for column $name in model $Model");
+            $this->warn("Consider to use cast $shouldUseCast for column $name in model $Model");
         } else {
             $type = match ($db_type) {
                 'varchar', 'text' => 'string',
