@@ -1,4 +1,5 @@
 {
+  "license": "MIT",
   "name": "quangphuc/laravel-tools",
   "autoload": {
     "psr-4": {
