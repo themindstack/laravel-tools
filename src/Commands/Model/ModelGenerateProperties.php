@@ -151,11 +151,13 @@ class ModelGenerateProperties extends Command
                 }
             } else {
                 $type = match ($casted_type) {
-                    'hashed' => 'string',
-                    'json', 'array' => 'mixed',
+                    'encrypted', 'hashed' => 'string',
+                    'json' => 'mixed',
+                    'array' => 'array<string, mixed>',
                     'date', 'datetime' => 'Carbon',
-                    'string', 'int', 'float', 'boolean' => $casted_type,
-                    default => throw new Exception('Unexpected $casted_type '. $casted_type)
+                    'collection' => 'Collection<string, mixed>',
+                    'string', 'int', 'float', 'boolean', 'bool' => $casted_type,
+                    default => throw new Exception('Unexpected $casted_type '. $casted_type . ' ' . $Model)
                 };
             }
         } else if (in_array($db_type, ['json', 'jsonb', 'date', 'datetime', 'timestamp'], true)) {
@@ -168,10 +170,10 @@ class ModelGenerateProperties extends Command
             $this->warn("Consider to use cast $shouldUseCast for column $name in model $Model");
         } else {
             $type = match ($db_type) {
-                'varchar', 'text' => 'string',
-                'int2', 'int4', 'int8', 'int', 'smallint', 'tinyint' => 'integer',
+                'varchar', 'text', 'uuid' => 'string',
+                'int2', 'int4', 'int8', 'int', 'smallint', 'tinyint', 'bool' => 'integer',
                 'float8', 'numeric', 'bigint', 'decimal', 'double' => 'float',
-                default => throw new Exception('Unexpected type '. $db_type)
+                default => throw new Exception('Unexpected type '. $db_type . ' ' . $Model)
             };
         }
 
