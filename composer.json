@@ -1,0 +1,30 @@
+{
+  "name": "quangphuc/laravel-tools",
+  "autoload": {
+    "psr-4": {
+      "Quangphuc\\LaravelTools\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "Huynh Quang Phuc",
+      "email": "quangphuc.huynh95@gmail.com"
+    }
+  ],
+  "require": {
+    "php": "^8.2",
+    "laravel/framework": "^11.0|^12.0",
+    "phpstan/phpdoc-parser": "^2.2"
+  }
+  ,
+  "require-dev": {
+    "roave/security-advisories": "dev-latest"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Quangphuc\\LaravelTools\\LaravelToolsServiceProvider"
+      ]
+    }
+  }
+}
