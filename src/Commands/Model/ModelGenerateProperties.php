@@ -2,6 +2,7 @@
 
 namespace Quangphuc\LaravelTools\Commands\Model;
 
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 
@@ -22,6 +23,8 @@ use Quangphuc\LaravelTools\Helpers\Dir;
 
 class ModelGenerateProperties extends Command
 {
+    public const DESC_PREFIX = 'database column ';
+
     /**
      * The name and signature of the console command.
      *
@@ -38,9 +41,9 @@ class ModelGenerateProperties extends Command
 
     /**
      * Execute the console command.
-     * @throws \Exception
+     * @throws Exception
      */
-    public function handle()
+    public function handle(): int
     {
         $this->info("Generating model properties");
 
@@ -78,7 +81,7 @@ class ModelGenerateProperties extends Command
                 && ($item->value instanceof PropertyTagValueNode)
                 && (
                     in_array(substr($item->value->propertyName, 1), $columnNames, true)
-                    || Str::startsWith($item->value->description, 'db column')
+                    || Str::startsWith($item->value->description, self::DESC_PREFIX)
                 )
             ));
 
@@ -88,9 +91,9 @@ class ModelGenerateProperties extends Command
                 $doc = new PhpDocTagNode(
                     name: '@property',
                     value: New PropertyTagValueNode(
-                        type: new IdentifierTypeNode(name: self::getType($column)),
+                        type: new IdentifierTypeNode(name: self::getType($column, $Model)),
                         propertyName: '$' . $column['name'],
-                        description: "db column {$column['name']}, {$column['comment']}"
+                        description:  self::DESC_PREFIX . "{$column['name']}" . ($column['comment'] ? ", {$column['comment']}" : '')
                     )
                 );
                 $newColumns[] = $doc;
@@ -102,30 +105,69 @@ class ModelGenerateProperties extends Command
             $newCommentsText = $printer->print($docblockNode);
             $fileContent = file_get_contents("$base/$modelFile");
             if ($commentsText) {
-                file_put_contents("$base/$modelFile", Str::replace($commentsText, $newCommentsText, $fileContent));
+                $fileContent = Str::replace($commentsText, $newCommentsText, $fileContent);
             } else {
-                throw new Exception("Please add a simple empty docblock to $base/$modelFile");
+                $startLine = $modelReflection->getStartLine() - 1;
+                $currentLine = 0;
+                $startLineIndex = 0;
+
+                while ($currentLine < $startLine) {
+                    $startLineIndex = strpos($fileContent, PHP_EOL, $startLineIndex + 1);
+                    $currentLine++;
+                }
+
+                $fileContent = Str::substrReplace($fileContent, $newCommentsText, $startLineIndex, 0);
             }
 
+            file_put_contents("$base/$modelFile", Str::replace($commentsText, $newCommentsText, $fileContent));
         }
         $this->info("✅ Completed");
+        return self::SUCCESS;
     }
 
     /**
+     * @param array{name: string, type_name: string, nullable: boolean} $column
      * @throws Exception
      */
-    public static function getType(array $column): string
+    public static function getType(array $column, string $Model): string
     {
-        $type = match ($column['type_name']) {
-            'varchar', 'text' => 'string',
-            'int2', 'int4', 'int8', 'int' => 'integer',
-            'float8', 'numeric' => 'float',
-            'timestamp' => 'Carbon',
-            'json', 'jsonb' => 'mixed',
-            default => throw new \Exception('Unexpected type '. $column['type_name'])
-        };
+        /**
+         * @var Model $model
+         */
+        $model = new $Model();
 
-        if ($column['nullable']) {
+        ['name' => $name, 'type_name' => $db_type, 'nullable' => $nullable] = $column;
+
+        if ($name === $model->getCreatedAtColumn() || $name === $model->getUpdatedAtColumn()) {
+            $type = 'Carbon';
+        } elseif ($model->hasCast($name)) {
+            $casted_type = $model->getCasts()[$name];
+
+            if (enum_exists($casted_type)) {
+                if (Str::startsWith($casted_type, 'App\\Models\\')) {
+                    $type = Str::replace('App\\Models\\', "", $casted_type);
+                } else {
+                    $type = '\\' . $casted_type;
+                }
+            } else {
+                $type = match ($casted_type) {
+                    'hashed' => 'string',
+                    'json', 'array' => 'mixed',
+                    'date', 'datetime' => 'Carbon',
+                    'string', 'int', 'float', 'boolean' => $casted_type,
+                    default => throw new Exception('Unexpected $casted_type '. $casted_type)
+                };
+            }
+        } else {
+            $type = match ($db_type) {
+                'varchar', 'text', 'json', 'jsonb', 'date', 'timestamp' => 'string',
+                'int2', 'int4', 'int8', 'int', 'smallint', 'tinyint' => 'integer',
+                'float8', 'numeric', 'bigint', 'decimal', 'double' => 'float',
+                default => throw new Exception('Unexpected type '. $db_type)
+            };
+        }
+
+        if ($nullable) {
             return "null|$type";
         }
 
