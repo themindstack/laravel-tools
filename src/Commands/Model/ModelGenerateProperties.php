@@ -158,11 +158,12 @@ class ModelGenerateProperties extends Command
                     default => throw new Exception('Unexpected $casted_type '. $casted_type)
                 };
             }
-        } else if (in_array($db_type, ['json', 'jsonb', 'date', 'timestamp'], true)) {
+        } else if (in_array($db_type, ['json', 'jsonb', 'date', 'datetime', 'timestamp'], true)) {
             $type = 'string';
             $shouldUseCast = match ($db_type) {
                 'json', 'jsonb' => 'json',
-                'date', 'timestamp' => 'date or datetime'
+                'date' => 'date',
+                'timestamp', 'datetime' => 'datetime'
             };
             $this->warn("Consider to use case $shouldUseCast for column $name in model $Model");
         } else {
