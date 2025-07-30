@@ -91,7 +91,7 @@ class ModelGenerateProperties extends Command
                 $doc = new PhpDocTagNode(
                     name: '@property',
                     value: New PropertyTagValueNode(
-                        type: new IdentifierTypeNode(name: self::getType($column, $Model)),
+                        type: new IdentifierTypeNode(name: $this->getType($column, $Model)),
                         propertyName: '$' . $column['name'],
                         description:  self::DESC_PREFIX . "{$column['name']}" . ($column['comment'] ? ", {$column['comment']}" : '')
                     )
@@ -129,7 +129,7 @@ class ModelGenerateProperties extends Command
      * @param array{name: string, type_name: string, nullable: boolean} $column
      * @throws Exception
      */
-    public static function getType(array $column, string $Model): string
+    protected function getType(array $column, string $Model): string
     {
         /**
          * @var Model $model
@@ -158,9 +158,16 @@ class ModelGenerateProperties extends Command
                     default => throw new Exception('Unexpected $casted_type '. $casted_type)
                 };
             }
+        } else if (in_array($db_type, ['json', 'jsonb', 'date', 'timestamp'], true)) {
+            $type = 'string';
+            $shouldUseCast = match ($db_type) {
+                'json', 'jsonb' => 'json',
+                'date', 'timestamp' => 'date or datetime'
+            };
+            $this->warn("Consider to use case $shouldUseCast for column $name in model $Model");
         } else {
             $type = match ($db_type) {
-                'varchar', 'text', 'json', 'jsonb', 'date', 'timestamp' => 'string',
+                'varchar', 'text' => 'string',
                 'int2', 'int4', 'int8', 'int', 'smallint', 'tinyint' => 'integer',
                 'float8', 'numeric', 'bigint', 'decimal', 'double' => 'float',
                 default => throw new Exception('Unexpected type '. $db_type)
