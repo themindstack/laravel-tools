@@ -22,6 +22,7 @@ use PHPStan\PhpDocParser\Parser\PhpDocParser;
 use PHPStan\PhpDocParser\Parser\TokenIterator;
 use PHPStan\PhpDocParser\Parser\TypeParser;
 use Quangphuc\LaravelTools\Helpers\Dir;
+use Spatie\LaravelData\DataCollection;
 
 class ModelGenerateProperties extends Command
 {
@@ -153,10 +154,16 @@ class ModelGenerateProperties extends Command
                 } else {
                     $type = '\\' . $casted_type;
                 }
-            }  else if ($casted_type === AsCollection::class) {
+            } else if ($casted_type === AsCollection::class) {
                 [$Collection, $Item] = array_pad($parameters, 2, null);
                 $Collection = $Collection ?: Collection::class;
                 $type = '\\' . $Collection . "<number, \\$Item>";
+            } else if (class_exists(DataCollection::class) && $casted_type === DataCollection::class) {
+                [$Item] = array_pad($parameters, 1, null);
+                $Item = data_get($parameters, 0, null);
+                $Item = $Item ? ('\\' . $Item) : 'mixed';
+
+                $type = '\\' . DataCollection::class . "<number, $Item>";
             } else {
                 $type = match ($casted_type) {
                     'encrypted', 'hashed' => 'string',
