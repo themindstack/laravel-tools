@@ -4,9 +4,11 @@ namespace Quangphuc\LaravelTools\Commands\Model;
 
 use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Casts\AsCollection;
 use Illuminate\Database\Eloquent\Model;
 
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocTagNode;
@@ -141,7 +143,9 @@ class ModelGenerateProperties extends Command
         if ($name === $model->getCreatedAtColumn() || $name === $model->getUpdatedAtColumn()) {
             $type = 'Carbon';
         } elseif ($model->hasCast($name)) {
-            $casted_type = $model->getCasts()[$name];
+            $cast = $model->getCasts()[$name];
+            [$casted_type, $parameters] = array_pad(explode(':', $cast, 2), 2, null);
+            $parameters = $parameters ? explode(',', $parameters) : [];
 
             if (enum_exists($casted_type)) {
                 if (Str::startsWith($casted_type, 'App\\Models\\')) {
@@ -149,6 +153,10 @@ class ModelGenerateProperties extends Command
                 } else {
                     $type = '\\' . $casted_type;
                 }
+            }  else if ($casted_type === AsCollection::class) {
+                [$Collection, $Item] = array_pad($parameters, 2, null);
+                $Collection = $Collection ?: Collection::class;
+                $type = '\\' . $Collection . "<number, \\$Item>";
             } else {
                 $type = match ($casted_type) {
                     'encrypted', 'hashed' => 'string',
