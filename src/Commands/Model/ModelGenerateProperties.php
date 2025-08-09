@@ -22,7 +22,6 @@ use PHPStan\PhpDocParser\Parser\PhpDocParser;
 use PHPStan\PhpDocParser\Parser\TokenIterator;
 use PHPStan\PhpDocParser\Parser\TypeParser;
 use Quangphuc\LaravelTools\Helpers\Dir;
-use Spatie\LaravelData\DataCollection;
 
 class ModelGenerateProperties extends Command
 {
@@ -141,7 +140,11 @@ class ModelGenerateProperties extends Command
 
         ['name' => $name, 'type_name' => $db_type, 'nullable' => $nullable] = $column;
 
-        if ($name === $model->getCreatedAtColumn() || $name === $model->getUpdatedAtColumn()) {
+        if (
+            $name === $model->getCreatedAtColumn()
+            || $name === $model->getUpdatedAtColumn()
+            || (method_exists($model, 'getDeletedAtColumn') && $name === $model->getDeletedAtColumn())
+        ) {
             $type = 'Carbon';
         } elseif ($model->hasCast($name)) {
             $cast = $model->getCasts()[$name];
@@ -158,12 +161,14 @@ class ModelGenerateProperties extends Command
                 [$Collection, $Item] = array_pad($parameters, 2, null);
                 $Collection = $Collection ?: Collection::class;
                 $type = '\\' . $Collection . "<number, \\$Item>";
-            } else if (class_exists(DataCollection::class) && $casted_type === DataCollection::class) {
+            } else if (class_exists(\Spatie\LaravelData\DataCollection::class) && $casted_type === \Spatie\LaravelData\DataCollection::class) {
                 [$Item] = array_pad($parameters, 1, null);
                 $Item = data_get($parameters, 0, null);
                 $Item = $Item ? ('\\' . $Item) : 'mixed';
 
-                $type = '\\' . DataCollection::class . "<number, $Item>";
+                $type = '\\' . \Spatie\LaravelData\DataCollection::class . "<number, $Item>";
+            } else if (class_exists(\Spatie\LaravelData\Data::class) && is_subclass_of($casted_type, \Spatie\LaravelData\Data::class)) {
+                $type = '\\' . $casted_type;
             } else {
                 $type = match ($casted_type) {
                     'encrypted', 'hashed' => 'string',
